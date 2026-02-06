@@ -9,7 +9,7 @@ import {
     ProcessedCryptoData,
 } from '@/types/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://137.184.116.222:8000';
 
 class ApiError extends Error {
     status: number;
