@@ -5,17 +5,11 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
     LayoutDashboard,
-    TrendingUp,
-    MessageSquare,
-    History,
     Settings,
 } from 'lucide-react';
 
 const navItems = [
     { href: '/', label: 'Vue d\'ensemble', icon: LayoutDashboard },
-    { href: '/trends', label: 'Tendances du marché', icon: TrendingUp },
-    { href: '/sentiment', label: 'Sentiment des actualités', icon: MessageSquare },
-    { href: '/history', label: 'Historique analytique', icon: History },
     { href: '/settings', label: 'Paramètres', icon: Settings },
 ];
 

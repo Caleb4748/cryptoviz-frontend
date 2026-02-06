@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { ProcessedCryptoData } from '@/types/api';
 import { fetchCryptos } from '@/lib/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://137.184.116.222:8000';
 
 interface UseWebSocketOptions {
     enabled?: boolean;
@@ -73,7 +73,8 @@ export function useWebSocket({
                 try {
                     const cryptoData: ProcessedCryptoData = JSON.parse(event.data);
                     setData(prev => {
-                        const index = prev.findIndex(c => c.symbol === cryptoData.symbol);
+                        // Use 'id' field instead of 'symbol'
+                        const index = prev.findIndex(c => c.id === cryptoData.id);
                         if (index >= 0) {
                             const updated = [...prev];
                             updated[index] = cryptoData;

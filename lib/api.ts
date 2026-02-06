@@ -1,12 +1,12 @@
 import {
     HealthResponse,
+    ProcessedCryptoData,
     OverviewResponse,
     TimeSeriesResponse,
     RecentEventsResponse,
     TrendsResponse,
     SentimentSummary,
     HistoryResponse,
-    ProcessedCryptoData,
 } from '@/types/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://137.184.116.222:8000';
@@ -49,58 +49,52 @@ export async function fetchHealth(): Promise<HealthResponse> {
     return fetchWithErrorHandling<HealthResponse>('/health');
 }
 
-// Overview
+// Assets
+export async function fetchCryptos(): Promise<ProcessedCryptoData[]> {
+    return fetchWithErrorHandling<ProcessedCryptoData[]>('/cryptos');
+}
+
+// Legacy Stubs - kept for compatibility with hidden pages
+// All return empty data or error to indicate feature is disabled
+
 export async function fetchOverview(): Promise<OverviewResponse> {
-    return fetchWithErrorHandling<OverviewResponse>('/overview');
+    throw new Error('Feature disabled');
 }
 
 export async function fetchMentionsTimeseries(
     window: string = '60m',
     interval: string = '1m'
 ): Promise<TimeSeriesResponse> {
-    return fetchWithErrorHandling<TimeSeriesResponse>(
-        `/mentions/timeseries?window=${window}&interval=${interval}`
-    );
+    return { points: [] };
 }
 
 export async function fetchRecentEvents(limit: number = 20): Promise<RecentEventsResponse> {
-    return fetchWithErrorHandling<RecentEventsResponse>(
-        `/events/recent?limit=${limit}`
-    );
+    return { items: [] };
 }
 
-// Trends
 export async function fetchTrendsTop(
     metric: 'mentions' | 'priceChange',
     window: string = '1h',
     limit: number = 5
 ): Promise<TrendsResponse> {
-    return fetchWithErrorHandling<TrendsResponse>(
-        `/trends/top?metric=${metric}&window=${window}&limit=${limit}`
-    );
+    return { metric, items: [] };
 }
 
-// Sentiment
 export async function fetchSentimentSummary(window: string = '1h'): Promise<SentimentSummary> {
-    return fetchWithErrorHandling<SentimentSummary>(
-        `/sentiment/summary?window=${window}`
-    );
+    return {
+        positivePct: 0,
+        neutralPct: 0,
+        negativePct: 0,
+        totalItems: 0
+    };
 }
 
-// History
 export async function fetchHistory(
     metric: 'newsVolume' | 'mentionsVolume' = 'newsVolume',
     range: string = '30d',
     interval: string = '1d'
 ): Promise<HistoryResponse> {
-    return fetchWithErrorHandling<HistoryResponse>(
-        `/history?metric=${metric}&range=${range}&interval=${interval}`
-    );
-}
-
-// Assets
-export async function fetchCryptos(): Promise<ProcessedCryptoData[]> {
-    return fetchWithErrorHandling<ProcessedCryptoData[]>('/cryptos');
+    return { metric, points: [] };
 }
 
 export { ApiError };

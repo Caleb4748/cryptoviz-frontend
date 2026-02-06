@@ -1,75 +1,46 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { Activity, Clock, Zap, Database, RefreshCw, AlertTriangle } from 'lucide-react';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { fetchOverview, fetchMentionsTimeseries, fetchRecentEvents } from '@/lib/api';
-import { formatDate, formatNumber, formatCompactNumber } from '@/lib/utils';
-import { OverviewResponse, TimeSeriesResponse, RecentEventsResponse } from '@/types/api';
-import { Card, CardHeader, CardTitle, CardContent, Button, SkeletonChart } from '@/components/ui';
-import { KPICard, EventsList } from '@/components/dashboard';
-import { MentionsChart } from '@/components/charts';
-
-const REFRESH_INTERVAL = 10000; // 10 seconds
+import { Activity, Wifi, WifiOff, RefreshCw, AlertTriangle, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { formatTimestamp, formatCompactNumber } from '@/lib/utils';
+import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
+import { KPICard, AssetsTable } from '@/components/dashboard';
 
 export default function OverviewPage() {
-  const [hasError, setHasError] = useState(false);
-
-  // Auto-refresh overview data
-  const {
-    data: overview,
-    error: overviewError,
-    isLoading: overviewLoading,
-    refresh: refreshOverview,
-  } = useAutoRefresh<OverviewResponse>({
-    fetchFn: useCallback(async () => {
-      const data = await fetchOverview();
-      setHasError(false);
-      return data;
-    }, []),
-    intervalMs: REFRESH_INTERVAL,
+  const { data: cryptos, isConnected, error } = useWebSocket({
+    enabled: true,
+    pollingIntervalMs: 5000,
   });
 
-  // Auto-refresh mentions timeseries
-  const {
-    data: mentions,
-    error: mentionsError,
-    isLoading: mentionsLoading,
-    refresh: refreshMentions,
-  } = useAutoRefresh<TimeSeriesResponse>({
-    fetchFn: useCallback(() => fetchMentionsTimeseries('60m', '1m'), []),
-    intervalMs: REFRESH_INTERVAL,
-  });
-
-  // Auto-refresh recent events
-  const {
-    data: events,
-    error: eventsError,
-    isLoading: eventsLoading,
-    refresh: refreshEvents,
-  } = useAutoRefresh<RecentEventsResponse>({
-    fetchFn: useCallback(() => fetchRecentEvents(20), []),
-    intervalMs: REFRESH_INTERVAL,
-  });
-
-  // Handle combined error state
-  const hasAnyError = overviewError || mentionsError || eventsError;
+  const [hasShownError, setHasShownError] = useState(false);
 
   // Show error toast on new errors
-  if (hasAnyError && !hasError) {
-    setHasError(true);
-    toast.error('Erreur de connexion au backend', {
-      description: 'Certaines données peuvent être indisponibles',
+  if (error && !hasShownError) {
+    setHasShownError(true);
+    toast.error('Erreur de connexion', {
+      description: error,
     });
   }
 
+  // Reset error state when connection is restored
+  if (!error && hasShownError) {
+    setHasShownError(false);
+  }
+
   const handleRetry = () => {
-    refreshOverview();
-    refreshMentions();
-    refreshEvents();
-    toast.info('Tentative de reconnexion...');
+    window.location.reload();
+    toast.info('Actualisation de la page...');
   };
+
+  // Calculate derived KPIs
+  const totalCryptos = cryptos.length;
+  const upTrends = cryptos.filter(c => c.trend === 'up').length;
+  const downTrends = cryptos.filter(c => c.trend === 'down').length;
+  const lastUpdate = cryptos.length > 0
+    ? Math.max(...cryptos.map(c => c.timestamp))
+    : null;
 
   return (
     <div className="space-y-6">
@@ -79,25 +50,44 @@ export default function OverviewPage() {
           <h1 className="text-2xl font-bold text-foreground">Vue d&apos;ensemble</h1>
           <p className="text-muted-foreground">Surveillance en temps réel du marché crypto</p>
         </div>
-        <Button onClick={handleRetry} variant="ghost" size="sm">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Actualiser
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* Connection Status Badge */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${isConnected
+              ? 'bg-green-500/10 text-green-400 border border-green-500/30'
+              : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30'
+            }`}>
+            {isConnected ? (
+              <>
+                <Wifi className="w-4 h-4" />
+                WebSocket
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4" />
+                Polling
+              </>
+            )}
+          </div>
+          <Button onClick={handleRetry} variant="ghost" size="sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Actualiser
+          </Button>
+        </div>
       </div>
 
       {/* Error Banner */}
-      {hasAnyError && (
-        <Card className="border-red-500/50 bg-red-500/10">
+      {error && (
+        <Card className="border-yellow-500/50 bg-yellow-500/10">
           <CardContent className="py-4">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
+              <AlertTriangle className="w-5 h-5 text-yellow-400" />
               <div className="flex-1">
-                <p className="text-red-400 font-medium">Backend indisponible</p>
-                <p className="text-sm text-red-400/70">
-                  Impossible de se connecter au serveur. Vérifiez que le backend est en cours d&apos;exécution.
+                <p className="text-yellow-400 font-medium">Mode dégradé actif</p>
+                <p className="text-sm text-yellow-400/70">
+                  {error}
                 </p>
               </div>
-              <Button onClick={handleRetry} variant="danger" size="sm">
+              <Button onClick={handleRetry} variant="secondary" size="sm">
                 Réessayer
               </Button>
             </div>
@@ -108,79 +98,36 @@ export default function OverviewPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
-          title="Flux actifs"
-          value={overview?.activeStreams ?? '-'}
+          title="Cryptomonnaies suivies"
+          value={totalCryptos > 0 ? totalCryptos : '-'}
           icon={Activity}
-          isLoading={overviewLoading}
+          isLoading={totalCryptos === 0 && !error}
+        />
+        <KPICard
+          title="Tendance haussière"
+          value={upTrends > 0 ? upTrends : '-'}
+          icon={TrendingUp}
+          isLoading={totalCryptos === 0 && !error}
+        />
+        <KPICard
+          title="Tendance baissière"
+          value={downTrends > 0 ? downTrends : '-'}
+          icon={TrendingDown}
+          isLoading={totalCryptos === 0 && !error}
         />
         <KPICard
           title="Dernière mise à jour"
-          value={overview?.lastUpdate ? formatDate(overview.lastUpdate) : '-'}
+          value={lastUpdate ? formatTimestamp(lastUpdate) : '-'}
           icon={Clock}
-          isLoading={overviewLoading}
-        />
-        <KPICard
-          title="Latence moyenne"
-          value={overview ? `${overview.avgLatencyMs} ms` : '-'}
-          icon={Zap}
-          isLoading={overviewLoading}
-        />
-        <KPICard
-          title="Points de données"
-          value={overview ? formatCompactNumber(overview.dataPointsCollected) : '-'}
-          icon={Database}
-          isLoading={overviewLoading}
+          isLoading={totalCryptos === 0 && !error}
         />
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Mentions Chart - Takes 2 columns */}
-        <div className="lg:col-span-2">
-          {mentionsLoading ? (
-            <SkeletonChart />
-          ) : mentionsError ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Mentions crypto par minute</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  Impossible de charger les données
-                </div>
-              </CardContent>
-            </Card>
-          ) : mentions && mentions.points.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Mentions crypto par minute</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <MentionsChart data={mentions.points} />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Mentions crypto par minute</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  Aucune donnée disponible
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Events List - Takes 1 column */}
-        <div>
-          <EventsList
-            events={events?.items ?? []}
-            isLoading={eventsLoading}
-          />
-        </div>
-      </div>
+      {/* Main Assets Table */}
+      <AssetsTable
+        assets={cryptos}
+        isLoading={totalCryptos === 0 && !error}
+      />
     </div>
   );
 }

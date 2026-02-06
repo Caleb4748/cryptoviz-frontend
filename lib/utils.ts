@@ -19,6 +19,24 @@ export function formatDate(dateString: string): string {
 }
 
 /**
+ * Format a Unix timestamp (seconds) to French readable format
+ */
+export function formatTimestamp(timestamp: number): string {
+    const date = new Date(timestamp * 1000);
+
+    const day = date.getDate().toString().padStart(2, '0');
+    const months = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+
+    return `${day} ${month} ${year} — ${hours}:${minutes}:${seconds}`;
+}
+
+/**
  * Format a date string to time only: "01:03:35"
  */
 export function formatTime(dateString: string): string {
@@ -32,7 +50,8 @@ export function formatTime(dateString: string): string {
 /**
  * Format a number with locale separators
  */
-export function formatNumber(num: number, decimals: number = 0): string {
+export function formatNumber(num: number | undefined | null, decimals: number = 0): string {
+    if (num === undefined || num === null) return '0';
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,

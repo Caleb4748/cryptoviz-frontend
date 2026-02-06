@@ -5,6 +5,16 @@ export interface HealthResponse {
     uptime_seconds?: number;
 }
 
+export interface ProcessedCryptoData {
+    timestamp: number;
+    id: string;
+    current_price: number;
+    moving_average: number;
+    avg_volume_24h?: number;
+    trend: 'up' | 'down';
+}
+
+// Legacy types - kept for compatibility with hidden pages
 export interface OverviewResponse {
     activeStreams: number;
     lastUpdate: string;
@@ -60,16 +70,6 @@ export interface HistoryResponse {
     range?: string;
     interval?: string;
     points: TimeSeriesPoint[];
-}
-
-export interface ProcessedCryptoData {
-    symbol: string;
-    price: number;
-    market_cap?: number;
-    volume_24h?: number;
-    moving_avg?: number;
-    trend?: 'up' | 'down' | 'stable';
-    updated_at: string;
 }
 
 // API Error type
