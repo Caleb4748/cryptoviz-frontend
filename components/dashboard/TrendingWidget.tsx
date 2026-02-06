@@ -8,8 +8,8 @@ import { TrendsResponse, TrendItem } from '@/types/api';
 import { formatCompactNumber } from '@/lib/utils'; // Assuming this utility exists
 
 interface TrendingWidgetProps {
-    mentionsData?: TrendsResponse;
-    priceData?: TrendsResponse;
+    mentionsData?: TrendsResponse | null;
+    priceData?: TrendsResponse | null;
     isLoading: boolean;
 }
 
@@ -36,8 +36,8 @@ export function TrendingWidget({ mentionsData, priceData, isLoading }: TrendingW
                         <button
                             onClick={() => setActiveTab('mentions')}
                             className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === 'mentions'
-                                    ? 'bg-background text-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             Mentions
@@ -45,8 +45,8 @@ export function TrendingWidget({ mentionsData, priceData, isLoading }: TrendingW
                         <button
                             onClick={() => setActiveTab('price')}
                             className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === 'price'
-                                    ? 'bg-background text-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             Prix
