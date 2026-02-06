@@ -1,0 +1,392 @@
+openapi: 3.0.3
+info:
+  title: CryptoViz MVP Dashboard API
+  description: |
+    API minimale (Keynote-ready) pour alimenter le dashboard CryptoViz.
+    Objectif: endpoints stables, payloads simples, compatibles avec données mockées ou réelles.
+  version: 1.0.1
+
+servers:
+  - url: https://your-backend.onrender.com
+    description: Production (Render)
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: System
+  - name: Overview
+  - name: Trends
+  - name: Sentiment
+  - name: History
+  - name: Assets
+  - name: Stream
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Vérifie si le backend est opérationnel
+      responses:
+        "200":
+          description: Backend OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /overview:
+    get:
+      tags: [Overview]
+      summary: KPIs de la vue d'ensemble (cartes du haut)
+      description: Retourne les métriques globales pour alimenter les cards de la page "Vue d'ensemble".
+      responses:
+        "200":
+          description: KPIs overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverviewResponse"
+
+  /mentions/timeseries:
+    get:
+      tags: [Overview]
+      summary: Série temporelle des mentions crypto
+      description: Série temporelle utilisée pour le graphe "Mentions crypto par minute".
+      parameters:
+        - in: query
+          name: window
+          schema:
+            type: string
+            example: 60m
+          description: Fenêtre de temps (ex: 15m, 60m, 24h)
+        - in: query
+          name: interval
+          schema:
+            type: string
+            example: 1m
+          description: Granularité (ex: 10s, 1m, 5m, 1h)
+      responses:
+        "200":
+          description: Série temporelle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimeSeriesResponse"
+
+  /events/recent:
+    get:
+      tags: [Overview]
+      summary: Derniers événements (news/updates)
+      description: Liste des événements récents affichés dans "Événements récents".
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Événements récents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RecentEvent"
+                required: [items]
+
+  /trends/top:
+    get:
+      tags: [Trends]
+      summary: Top cryptos tendances (mentions ou prix)
+      description: |
+        Top N cryptos selon une métrique.
+        Utilisé par la page "Tendances du marché" (Vue par mentions / Vue par prix).
+      parameters:
+        - in: query
+          name: metric
+          required: true
+          schema:
+            type: string
+            enum: [mentions, priceChange]
+            example: mentions
+        - in: query
+          name: window
+          schema:
+            type: string
+            example: 1h
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+      responses:
+        "200":
+          description: Liste top tendances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metric:
+                    type: string
+                    enum: [mentions, priceChange]
+                  window:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TrendItem"
+                required: [metric, items]
+
+  /sentiment/summary:
+    get:
+      tags: [Sentiment]
+      summary: Répartition du sentiment (positive / neutral / negative)
+      description: Utilisé par la page "Sentiment des actualités".
+      parameters:
+        - in: query
+          name: window
+          schema:
+            type: string
+            example: 1h
+      responses:
+        "200":
+          description: Résumé sentiment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SentimentSummary"
+
+  /history:
+    get:
+      tags: [History]
+      summary: Série historique (ex: news volume)
+      description: |
+        Données historiques pour la page "Historique analytique".
+        Exemple: volume d'actualités sur 30 jours.
+      parameters:
+        - in: query
+          name: metric
+          required: true
+          schema:
+            type: string
+            enum: [newsVolume, mentionsVolume]
+            example: newsVolume
+        - in: query
+          name: range
+          schema:
+            type: string
+            example: 30d
+        - in: query
+          name: interval
+          schema:
+            type: string
+            example: 1d
+      responses:
+        "200":
+          description: Série historique
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryResponse"
+
+  /cryptos:
+    get:
+      tags: [Assets]
+      summary: Liste des dernières données par crypto
+      description: Retourne les dernières valeurs traitées pour chaque crypto (dernière mesure connue).
+      responses:
+        "200":
+          description: Liste des cryptos avec leurs dernières métriques
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcessedCryptoData"
+
+  /ws:
+    get:
+      tags: [Stream]
+      summary: WebSocket pour les mises à jour en temps réel (optionnel)
+      description: |
+        Connexion WebSocket pour recevoir les données traitées en streaming.
+        Chaque message est un JSON contenant les infos d'une crypto.
+      responses:
+        default:
+          description: Connexion WebSocket établie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessedCryptoData"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        uptime_seconds:
+          type: integer
+          example: 12345
+      required: [status]
+
+    OverviewResponse:
+      type: object
+      properties:
+        activeStreams:
+          type: integer
+          example: 14
+        lastUpdate:
+          type: string
+          format: date-time
+          example: "2026-02-06T01:03:35Z"
+        avgLatencyMs:
+          type: integer
+          example: 36
+        dataPointsCollected:
+          type: integer
+          example: 1248139
+      required: [activeStreams, lastUpdate, avgLatencyMs, dataPointsCollected]
+
+    TimeSeriesPoint:
+      type: object
+      properties:
+        t:
+          type: string
+          format: date-time
+          example: "2026-02-06T01:03:00Z"
+        value:
+          type: number
+          example: 42
+      required: [t, value]
+
+    TimeSeriesResponse:
+      type: object
+      properties:
+        window:
+          type: string
+          example: 60m
+        interval:
+          type: string
+          example: 1m
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeSeriesPoint"
+      required: [points]
+
+    RecentEvent:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: BTC
+        sentiment:
+          type: string
+          enum: [positive, neutral, negative]
+          example: positive
+        title:
+          type: string
+          example: "BTC fait face à une pression de vente"
+        source:
+          type: string
+          example: Reuters
+        publishedAt:
+          type: string
+          format: date-time
+          example: "2026-02-06T01:03:35Z"
+      required: [symbol, sentiment, title, source, publishedAt]
+
+    TrendItem:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: BTC
+        value:
+          type: number
+          description: Valeur associée à la métrique (mentions ou variation de prix)
+          example: 8542
+        changePct:
+          type: number
+          description: Variation en pourcentage (si disponible)
+          example: 5.2
+      required: [symbol, value]
+
+    SentimentSummary:
+      type: object
+      properties:
+        window:
+          type: string
+          example: 1h
+        positivePct:
+          type: number
+          example: 45
+        neutralPct:
+          type: number
+          example: 35
+        negativePct:
+          type: number
+          example: 20
+        totalItems:
+          type: integer
+          example: 120
+      required: [positivePct, neutralPct, negativePct]
+
+    HistoryResponse:
+      type: object
+      properties:
+        metric:
+          type: string
+          enum: [newsVolume, mentionsVolume]
+          example: newsVolume
+        range:
+          type: string
+          example: 30d
+        interval:
+          type: string
+          example: 1d
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeSeriesPoint"
+      required: [metric, points]
+
+    ProcessedCryptoData:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: BTC
+        price:
+          type: number
+          example: 42350.12
+        market_cap:
+          type: number
+          example: 830000000000
+        volume_24h:
+          type: number
+          example: 19000000000
+        moving_avg:
+          type: number
+          example: 42100.55
+        trend:
+          type: string
+          enum: [up, down, stable]
+          example: up
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-06T01:03:35Z"
+      required: [symbol, price, updated_at]
