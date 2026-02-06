@@ -4,12 +4,26 @@ import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { Activity, Clock, Zap, Database, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { fetchOverview, fetchMentionsTimeseries, fetchRecentEvents } from '@/lib/api';
+import {
+  fetchOverview,
+  fetchMentionsTimeseries,
+  fetchRecentEvents,
+  fetchSentimentSummary,
+  fetchTrendsTop,
+  fetchCryptos
+} from '@/lib/api';
 import { formatDate, formatNumber, formatCompactNumber } from '@/lib/utils';
-import { OverviewResponse, TimeSeriesResponse, RecentEventsResponse } from '@/types/api';
+import {
+  OverviewResponse,
+  TimeSeriesResponse,
+  RecentEventsResponse,
+  SentimentSummary,
+  TrendsResponse,
+  ProcessedCryptoData
+} from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent, Button, SkeletonChart } from '@/components/ui';
-import { KPICard, EventsList } from '@/components/dashboard';
-import { MentionsChart } from '@/components/charts';
+import { KPICard, EventsList, TrendingWidget, AssetsTable } from '@/components/dashboard';
+import { MentionsChart, SentimentChart } from '@/components/charts';
 
 const REFRESH_INTERVAL = 10000; // 10 seconds
 
@@ -53,8 +67,49 @@ export default function OverviewPage() {
     intervalMs: REFRESH_INTERVAL,
   });
 
+  // Auto-refresh sentiment
+  const {
+    data: sentiment,
+    error: sentimentError,
+    isLoading: sentimentLoading,
+    refresh: refreshSentiment,
+  } = useAutoRefresh<SentimentSummary>({
+    fetchFn: useCallback(() => fetchSentimentSummary('1h'), []),
+    intervalMs: REFRESH_INTERVAL,
+  });
+
+  // Auto-refresh trends (mentions)
+  const {
+    data: trendsMentions,
+    isLoading: trendsMentionsLoading,
+    refresh: refreshTrendsMentions,
+  } = useAutoRefresh<TrendsResponse>({
+    fetchFn: useCallback(() => fetchTrendsTop('mentions', '1h', 5), []),
+    intervalMs: REFRESH_INTERVAL,
+  });
+
+  // Auto-refresh trends (price)
+  const {
+    data: trendsPrice,
+    isLoading: trendsPriceLoading,
+    refresh: refreshTrendsPrice,
+  } = useAutoRefresh<TrendsResponse>({
+    fetchFn: useCallback(() => fetchTrendsTop('priceChange', '24h', 5), []),
+    intervalMs: REFRESH_INTERVAL,
+  });
+
+  // Auto-refresh assets
+  const {
+    data: assets,
+    isLoading: assetsLoading,
+    refresh: refreshAssets,
+  } = useAutoRefresh<ProcessedCryptoData[]>({
+    fetchFn: useCallback(() => fetchCryptos(), []),
+    intervalMs: REFRESH_INTERVAL,
+  });
+
   // Handle combined error state
-  const hasAnyError = overviewError || mentionsError || eventsError;
+  const hasAnyError = overviewError || mentionsError || eventsError || sentimentError;
 
   // Show error toast on new errors
   if (hasAnyError && !hasError) {
@@ -68,6 +123,10 @@ export default function OverviewPage() {
     refreshOverview();
     refreshMentions();
     refreshEvents();
+    refreshSentiment();
+    refreshTrendsMentions();
+    refreshTrendsPrice();
+    refreshAssets();
     toast.info('Tentative de reconnexion...');
   };
 
@@ -136,7 +195,7 @@ export default function OverviewPage() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Mentions Chart - Takes 2 columns */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
           {mentionsLoading ? (
             <SkeletonChart />
           ) : mentionsError ? (
@@ -171,15 +230,57 @@ export default function OverviewPage() {
               </CardContent>
             </Card>
           )}
-        </div>
 
-        {/* Events List - Takes 1 column */}
-        <div>
+          {/* Events List - Below Mentions Chart */}
           <EventsList
             events={events?.items ?? []}
             isLoading={eventsLoading}
           />
         </div>
+
+        {/* Right Column: Sentiment + Trending */}
+        <div className="space-y-6">
+          {/* Sentiment Chart */}
+          {sentimentLoading ? (
+            <SkeletonChart />
+          ) : sentimentError ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Sentiment (1h)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 flex items-center justify-center text-muted-foreground">
+                  Erreur
+                </div>
+              </CardContent>
+            </Card>
+          ) : sentiment ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Sentiment (1h)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SentimentChart data={sentiment} />
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* Trending Widget */}
+          <TrendingWidget
+            mentionsData={trendsMentions}
+            priceData={trendsPrice}
+            isLoading={trendsMentionsLoading || trendsPriceLoading}
+          />
+        </div>
+      </div>
+
+      {/* Bottom Section: Assets Table */}
+      <div>
+        <h2 className="text-xl font-bold mb-4">Marché</h2>
+        <AssetsTable
+          assets={assets ?? []}
+          isLoading={assetsLoading}
+        />
       </div>
     </div>
   );
